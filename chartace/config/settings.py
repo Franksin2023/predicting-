@@ -4,7 +4,7 @@ Configuration settings for Chartace algorithmic trading framework.
 
 import os
 from dataclasses import dataclass, field
-from typing import List, Literal
+from typing import List, Literal, Dict
 from enum import Enum
 
 
@@ -13,6 +13,14 @@ class Timeframe(str, Enum):
     H1 = "1h"
     H4 = "4h"
     D1 = "1d"
+
+
+TIMEFRAME_MINUTES: Dict[Timeframe, int] = {
+    Timeframe.M15: 15,
+    Timeframe.H1: 60,
+    Timeframe.H4: 240,
+    Timeframe.D1: 1440,
+}
 
 
 @dataclass
