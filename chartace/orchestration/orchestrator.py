@@ -2,7 +2,7 @@
 Strategy orchestration engine.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
 import numpy as np
 import pandas as pd
