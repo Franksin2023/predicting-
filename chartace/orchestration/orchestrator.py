@@ -5,7 +5,7 @@ Strategy orchestration engine.
 from typing import List, Dict, Any
 import logging
 
-from chartace.data.fetchers import DataFetcher
+from chartace.data.fetchers import YFinanceFetcher
 from chartace.regime.detector import RegimeDetector
 from chartace.risk.governor import RiskGovernor
 from chartace.execution.alpaca_bridge import AlpacaBridge
@@ -19,7 +19,7 @@ class StrategyOrchestrator:
     """
 
     def __init__(self):
-        self.fetcher = DataFetcher()
+        self.fetcher = YFinanceFetcher
         self.regime_detector = RegimeDetector()
         self.risk_governor = RiskGovernor()
         self.execution_bridge = AlpacaBridge()
@@ -29,12 +29,10 @@ class StrategyOrchestrator:
         Execute a single pipeline cycle for a target symbol.
         """
         logger.info(f"Running pipeline cycle for {symbol}...")
-        quote = self.fetcher.fetch_latest_quote(symbol)
         account = self.execution_bridge.get_account()
 
         return {
             "status": "cycle_completed",
             "symbol": symbol,
-            "quote": quote,
             "account_status": account.get("status")
         }
