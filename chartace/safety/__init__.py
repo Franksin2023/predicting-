@@ -1,0 +1,3 @@
+"""
+Safety module initialization.
+"""

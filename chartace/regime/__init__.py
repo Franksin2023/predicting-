@@ -1,0 +1,3 @@
+"""
+Regime detection module initialization.
+"""
