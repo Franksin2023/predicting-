@@ -1,0 +1,15 @@
+[name]
+value = "search_performance"
+
+[fitness]
+latency_weight = 0.5
+index_size_weight = 0.3
+correctness_weight = 0.2
+
+[constraints]
+max_index_size_mb = 500
+max_latency_ms = 200
+
+[execution]
+test_command = "python -m tests.search_performance"
+target_path = "src/search/"
