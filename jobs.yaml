@@ -1,0 +1,6 @@
+jobs:
+  - name: evolve_search_performance
+    environment: "evolution/environment_search.toml"
+    lineage: "lineages/lineage_search.json"
+    target: "src/search/"
+    tests: "python -m tests.search_performance"
