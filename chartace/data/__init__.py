@@ -1,3 +1,3 @@
 """
-Data module initialization.
+Data pipeline and feature engineering.
 """

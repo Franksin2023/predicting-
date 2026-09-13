@@ -1,3 +1,3 @@
 """
-Safety module initialization.
+Safety and risk controls module.
 """

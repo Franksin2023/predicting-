@@ -1,3 +1,3 @@
 """
-Models module initialization.
+Machine learning models for price prediction.
 """

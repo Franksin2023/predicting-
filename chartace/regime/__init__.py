@@ -1,3 +1,3 @@
 """
-Regime detection module initialization.
+Market regime detection and classification.
 """

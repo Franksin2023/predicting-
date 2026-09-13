@@ -1,3 +1,3 @@
 """
-Meta module initialization.
+Meta model and expected value evaluation engine.
 """

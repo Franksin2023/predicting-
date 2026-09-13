@@ -1,3 +1,3 @@
 """
-Risk management module initialization.
+Risk management module.
 """

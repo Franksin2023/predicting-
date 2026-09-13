@@ -1,35 +1,46 @@
 """
-Audit and trade activity logger.
+Audit logging and event tracking.
 """
 
 import json
 import os
-import logging
-from datetime import datetime, timezone
-from typing import Dict, Any
+from datetime import datetime
+from typing import Any, Dict
 
 
 class AuditLogger:
     """
-    Records trade execution logs and system state changes for audit trails in JSONL format.
+    Logs all trading events to JSONL file for auditing and analysis.
     """
 
     def __init__(self, log_path: str = "logs/audit_trail.jsonl"):
+        """
+        Initialize audit logger.
+        
+        Args:
+            log_path: Path to audit log file
+        """
         self.log_path = log_path
-        log_dir = os.path.dirname(self.log_path)
-        if log_dir:
-            os.makedirs(log_dir, exist_ok=True)
-        self.logger = logging.getLogger("ChartaceAudit")
+        
+        # Create log directory if it doesn't exist
+        os.makedirs(os.path.dirname(log_path) if os.path.dirname(log_path) else ".", exist_ok=True)
 
     def log_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """
-        Log structured system event to a JSONL file and Python logger.
+        Log an event to the audit trail.
+        
+        Args:
+            event_type: Type of event (e.g., 'TRADE', 'CIRCUIT_BREAKER_TRIPPED')
+            data: Event data dictionary
         """
-        record = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+        event = {
+            "timestamp": datetime.utcnow().isoformat(),
             "event_type": event_type,
-            "payload": data
+            "data": data
         }
-        with open(self.log_path, "a") as f:
-            f.write(json.dumps(record) + "\n")
-        self.logger.info(f"AUDIT_EVENT: {event_type} - {data}")
+        
+        try:
+            with open(self.log_path, 'a') as f:
+                f.write(json.dumps(event) + '\n')
+        except Exception as e:
+            print(f"Error writing to audit log: {e}")

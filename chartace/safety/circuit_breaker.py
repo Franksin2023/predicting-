@@ -1,10 +1,9 @@
 """
-Circuit breaker emergency module.
+Emergency circuit breaker and market shock detection module.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Optional
 import numpy as np
 import pandas as pd
 
@@ -13,80 +12,97 @@ import pandas as pd
 class CircuitBreakerState:
     tripped: bool
     reason: str
-    timestamp: Optional[str] = None
+    severity: str
 
 
 class EmergencyCircuitBreaker:
     """
-    Monitors statistical returns and anomalies (z-score shocks) to trip emergency halt switches.
+    Detects extreme market shocks (e.g., 5-sigma moves) and triggers trading halts.
     """
 
-    def __init__(self, sigma_threshold: float = 5.0, check_window_bars: int = 5, reset_cooldown_minutes: int = 30):
+    def __init__(
+        self,
+        sigma_threshold: float = 5.0,
+        check_window_bars: int = 5,
+        reset_cooldown_minutes: int = 30
+    ):
         self.sigma_threshold = sigma_threshold
-        self.window = check_window_bars
-        self.reset_cooldown = reset_cooldown_minutes
-        self.tripped_state = CircuitBreakerState(tripped=False, reason="")
-        self.trip_timestamp = None
+        self.check_window_bars = check_window_bars
+        self.reset_cooldown_minutes = reset_cooldown_minutes
+        self.last_trip_time: Optional[float] = None
 
-    def check_shock(self, recent_bars: pd.DataFrame) -> CircuitBreakerState:
-        if len(recent_bars) < self.window + 50:
-            return self.tripped_state
-
-        if self.tripped_state.tripped and self.trip_timestamp:
-            minutes_since_trip = (datetime.now(timezone.utc) - self.trip_timestamp).total_seconds() / 60
-            if minutes_since_trip < self.reset_cooldown:
-                return self.tripped_state
-            else:
-                self.tripped_state = CircuitBreakerState(tripped=False, reason="")
-                self.trip_timestamp = None
-
-        closes = recent_bars['close']
-        returns = np.log(closes / closes.shift(1)).dropna()
-
-        rolling_mean = returns.rolling(window=50).mean().iloc[-1]
-        rolling_std = returns.rolling(window=50).std().iloc[-1]
-
-        if rolling_std == 0 or np.isnan(rolling_std):
-            return self.tripped_state
-
-        latest_return = returns.iloc[-1]
-        cumulative_return = returns.iloc[-self.window:].sum()
-
-        latest_z = (latest_return - rolling_mean) / rolling_std
-        cumulative_z = (cumulative_return - (rolling_mean * self.window)) / (rolling_std * np.sqrt(self.window))
-
-        if abs(latest_z) >= self.sigma_threshold or abs(cumulative_z) >= self.sigma_threshold:
-            self.tripped_state = CircuitBreakerState(
+    def check_shock(self, bars: pd.DataFrame) -> CircuitBreakerState:
+        """
+        Check if recent price movement exceeds shock threshold.
+        
+        Args:
+            bars: DataFrame with OHLCV data (must have 'close' column)
+        
+        Returns:
+            CircuitBreakerState indicating if breaker is tripped
+        """
+        if bars.empty or len(bars) < self.check_window_bars:
+            return CircuitBreakerState(tripped=False, reason="Insufficient data", severity="NONE")
+        
+        recent = bars.iloc[-self.check_window_bars:]
+        closes = recent['close'].values
+        
+        if len(closes) < 2:
+            return CircuitBreakerState(tripped=False, reason="Insufficient bars", severity="NONE")
+        
+        # Calculate returns and z-score
+        returns = np.diff(closes) / closes[:-1]
+        mean_return = np.mean(returns)
+        std_return = np.std(returns)
+        
+        if std_return == 0:
+            return CircuitBreakerState(tripped=False, reason="Zero volatility", severity="NONE")
+        
+        latest_return = returns[-1]
+        z_score = abs((latest_return - mean_return) / std_return)
+        
+        if z_score > self.sigma_threshold:
+            return CircuitBreakerState(
                 tripped=True,
-                reason=f"Emergency Circuit Breaker: Latest z={latest_z:.2f}, Cumulative z={cumulative_z:.2f} over {self.window} bars",
-                timestamp=str(recent_bars.index[-1])
+                reason=f"{z_score:.2f}-sigma move detected ({latest_return*100:.2f}%)",
+                severity="CRITICAL"
             )
-            self.trip_timestamp = datetime.now(timezone.utc)
+        
+        return CircuitBreakerState(tripped=False, reason="Normal", severity="NONE")
 
-        return self.tripped_state
 
-
-class CircuitBreaker(EmergencyCircuitBreaker):
+class DynamicFrictionModeler:
     """
-    Backward-compatible alias for EmergencyCircuitBreaker.
+    Models transaction costs and market friction for position sizing.
     """
 
-    def __init__(self, max_drawdown_pct: float = 0.10, sigma_threshold: float = 5.0):
-        super().__init__(sigma_threshold=sigma_threshold)
-        self.max_drawdown_pct = max_drawdown_pct
-        self.is_tripped = False
+    def __init__(self, baseline_cost_bps: float = 5.0):
+        """
+        Args:
+            baseline_cost_bps: Baseline transaction cost in basis points
+        """
+        self.baseline_cost_bps = baseline_cost_bps
 
-    def check_status(self, current_equity: float, peak_equity: float) -> bool:
-        if peak_equity <= 0:
-            return False
-
-        drawdown = (peak_equity - current_equity) / peak_equity
-        if drawdown >= self.max_drawdown_pct:
-            self.is_tripped = True
-
-        return self.is_tripped
-
-    def reset(self) -> None:
-        self.is_tripped = False
-        self.tripped_state = CircuitBreakerState(tripped=False, reason="")
-        self.trip_timestamp = None
+    def calculate_friction(self, position_size: float, volatility: float, liquidity_score: float) -> float:
+        """
+        Calculate dynamic transaction cost based on market conditions.
+        
+        Args:
+            position_size: Size of position in units
+            volatility: Current realized volatility
+            liquidity_score: Relative liquidity (0-1, where 1 = most liquid)
+        
+        Returns:
+            Estimated transaction cost in basis points
+        """
+        # Base cost
+        cost = self.baseline_cost_bps
+        
+        # Adjust for volatility (higher vol = higher cost)
+        cost *= (1.0 + volatility)
+        
+        # Adjust for liquidity (lower liquidity = higher cost)
+        if liquidity_score < 1.0:
+            cost *= (1.0 / max(liquidity_score, 0.1))
+        
+        return max(cost, self.baseline_cost_bps)

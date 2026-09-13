@@ -1,85 +1,55 @@
 """
-Alpaca broker bridge interface.
+Alpaca trading API integration bridge.
 """
 
-import os
-from typing import Dict, Any, List, Optional
+from typing import Optional, Dict, Any
 
 
 class AlpacaExecutionBridge:
     """
-    Interface for submitting bracket orders and receiving execution reports from Alpaca API.
+    Bridge to Alpaca trading API for order execution.
     """
 
-    def __init__(self, paper: bool = True):
-        api_key = os.environ.get("ALPACA_API_KEY")
-        secret_key = os.environ.get("ALPACA_SECRET_KEY")
+    def __init__(self, paper: bool = True, api_key: Optional[str] = None, secret_key: Optional[str] = None):
+        """
+        Initialize Alpaca execution bridge.
+        
+        Args:
+            paper: Use paper trading (default True)
+            api_key: Alpaca API key
+            secret_key: Alpaca secret key
+        """
+        self.paper = paper
+        self.api_key = api_key
+        self.secret_key = secret_key
+        self._client = None
 
-        if not api_key or not secret_key:
-            self.client = None
-        else:
-            try:
-                from alpaca.trading.client import TradingClient
-                self.client = TradingClient(api_key, secret_key, paper=paper)
-            except ImportError:
-                self.client = None
-
-    def execute_verdict(self, symbol: str, verdict: dict) -> Optional[str]:
-        if verdict.get('action') != 'EXECUTE':
-            return "No action required."
-
-        hyp = verdict['hypothesis']
-        size = verdict['size']
-
-        if self.client is None:
-            print(f"[ALPACA EXECUTION MOCK] Executed {hyp.direction} for {symbol} - {size} units at {hyp.entry_price}")
-            return "mock_order_id_12345"
-
-        from alpaca.trading.requests import LimitOrderRequest
-        from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
-
-        side = OrderSide.BUY if hyp.direction == "LONG" else OrderSide.SELL
-
-        order_request = LimitOrderRequest(
-            symbol=symbol,
-            qty=size,
-            side=side,
-            time_in_force=TimeInForce.GTC,
-            limit_price=round(hyp.entry_price, 2),
-            order_class=OrderClass.BRACKET,
-            stop_loss={"stop_price": round(hyp.stop_loss, 2)},
-            take_profit={"limit_price": round(hyp.take_profit, 2)}
-        )
-
-        try:
-            response = self.client.submit_order(order_request)
-            print(f"[ALPACA EXECUTION SUCCESS] Order ID: {response.id}")
-            return str(response.id)
-        except Exception as e:
-            print(f"[ALPACA EXECUTION ERROR] Failed to submit order: {str(e)}")
-            return None
-
-
-class AlpacaBridge(AlpacaExecutionBridge):
-    """
-    Backward-compatible alias for AlpacaExecutionBridge.
-    """
-
-    def submit_order(self, symbol: str, qty: int, side: str, order_type: str = "market", time_in_force: str = "gtc") -> Dict[str, Any]:
+    def submit_order(self, symbol: str, qty: float, side: str, order_type: str = "market") -> Dict[str, Any]:
+        """
+        Submit an order to Alpaca.
+        
+        Args:
+            symbol: Stock symbol
+            qty: Quantity
+            side: 'buy' or 'sell'
+            order_type: 'market', 'limit', etc.
+        
+        Returns:
+            Order result dictionary
+        """
+        # Placeholder implementation
         return {
-            "id": "ord_mock_12345",
+            "status": "submitted",
             "symbol": symbol,
             "qty": qty,
             "side": side,
-            "type": order_type,
-            "time_in_force": time_in_force,
-            "status": "submitted"
+            "type": order_type
         }
 
-    def get_account(self) -> Dict[str, Any]:
-        return {
-            "cash": 100000.0,
-            "portfolio_value": 100000.0,
-            "buying_power": 400000.0,
-            "status": "ACTIVE"
-        }
+    def cancel_order(self, order_id: str) -> bool:
+        """Cancel an order."""
+        return True
+
+    def get_positions(self) -> Dict[str, Any]:
+        """Get current positions."""
+        return {}

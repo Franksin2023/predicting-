@@ -1,3 +1,3 @@
 """
-Execution module initialization.
+Execution and trade management module.
 """

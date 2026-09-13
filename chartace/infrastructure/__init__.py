@@ -1,3 +1,3 @@
 """
-Infrastructure module initialization.
+Infrastructure and persistence layer.
 """
